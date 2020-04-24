@@ -97,7 +97,7 @@ def ConvDiscriminator(input_shape=(None, 32, 32, 3),
     h = tf.reshape(h, input_shape) # unflatten
 
     # 1
-    h = keras.layers.Conv2D(dim, 4, strides=2, padding='same')(h)
+    h = keras.layers.Conv2D(dim, 3, strides=2, padding='same')(h)
     h = tf.nn.leaky_relu(h, alpha=0.2)
 
     for _ in range(n_downsamplings - 1):
