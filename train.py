@@ -66,8 +66,8 @@ A_B_dataset_test, _ = data.make_zip_dataset(real_img_paths_test, syn_img_paths_t
 G_A2B = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
 G_B2A = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
+D_B = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
