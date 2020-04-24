@@ -17,11 +17,12 @@ import module
 # =                                   param                                    =
 # ==============================================================================
 
-py.arg('--dataset', default='horse2zebra')
-py.arg('--datasets_dir', default='datasets')
-py.arg('--load_size', type=int, default=286)  # load image to this size
-py.arg('--crop_size', type=int, default=256)  # then crop to this size
+py.arg('--dataset', default='digit-data')
+py.arg('--datasets_dir', default='digit-data')
+# py.arg('--load_size', type=int, default=286)  # load image to this size
+# py.arg('--crop_size', type=int, default=256)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
+py.arg('--img_size', type=int, default=32)
 py.arg('--epochs', type=int, default=200)
 py.arg('--epoch_decay', type=int, default=100)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
@@ -46,24 +47,24 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # =                                    data                                    =
 # ==============================================================================
 
-A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
-B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
-A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
+real_img_paths = py.glob(py.join(args.datasets_dir, 'real-digits', 'train'), '*.png')
+syn_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'cropped'), '*.png')
+A_B_dataset, len_dataset = data.make_zip_dataset(real_img_paths, syn_img_paths, args.batch_size, args.img_size, args.img_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
-A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
-B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, repeat=True)
+real_img_paths_test = py.glob(py.join(args.datasets_dir, 'real-digits', 'test'), '*.png')
+syn_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'cropped'), '*.png')
+A_B_dataset_test, _ = data.make_zip_dataset(real_img_paths_test, syn_img_paths_test, args.batch_size, args.img_size, args.img_size, training=False, repeat=True)
 
 
 # ==============================================================================
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
+G_B2A = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
 
 D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
 D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
@@ -71,6 +72,10 @@ D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
+###############################################################
+# Addition of supervised loss (on synth data)
+###############################################################
+supervised_loss_fn = tf.losses.MeanAbsoluteError()
 
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)

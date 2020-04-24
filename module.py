@@ -18,7 +18,7 @@ def _get_norm_layer(norm):
         return keras.layers.LayerNormalization
 
 
-def ResnetGenerator(input_shape=(256, 256, 3),
+def ResnetGenerator(input_shape=(32, 32, 3),
                     output_channels=3,
                     dim=64,
                     n_downsamplings=2,
@@ -73,10 +73,18 @@ def ResnetGenerator(input_shape=(256, 256, 3),
     h = keras.layers.Conv2D(output_channels, 7, padding='valid')(h)
     h = tf.tanh(h)
 
+    ###############################################################
+    # Addition of bottleneck
+    ###############################################################
+    # compress
+    shape_before_flatten = h.shape
+    print(shape_before_flatten)
+    h = keras.layers.Flatten()(h)
+    h = keras.layers.Dense(128)(h)
+
     return keras.Model(inputs=inputs, outputs=h)
 
-
-def ConvDiscriminator(input_shape=(256, 256, 3),
+def ConvDiscriminator(input_shape=(32, 32, 3),
                       dim=64,
                       n_downsamplings=3,
                       norm='instance_norm'):
@@ -85,6 +93,10 @@ def ConvDiscriminator(input_shape=(256, 256, 3),
 
     # 0
     h = inputs = keras.Input(shape=input_shape)
+
+    # # uncompress
+    # h = keras.layers.Dense(tf.keras.backend.prod(shape_before_flatten))
+    # h = tf.reshape(h, shape_before_flatten) # unflatten
 
     # 1
     h = keras.layers.Conv2D(dim, 4, strides=2, padding='same')(h)
