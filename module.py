@@ -93,7 +93,7 @@ def ConvDiscriminator(input_shape=(32, 32, 3),
     h = inputs = keras.Input(shape=(None, 128))
 
     # uncompress
-    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))
+    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
     h = tf.reshape(h, input_shape) # unflatten
 
     # 1
