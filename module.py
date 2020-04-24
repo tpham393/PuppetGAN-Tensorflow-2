@@ -82,7 +82,7 @@ def ResnetGenerator(input_shape=(32, 32, 3),
 
     return keras.Model(inputs=inputs, outputs=h)
 
-def ConvDiscriminator(input_shape=(None, 32, 32, 3),
+def ConvDiscriminator(input_shape=(32, 32, 3),
                       dim=64,
                       n_downsamplings=3,
                       norm='instance_norm'):
@@ -94,10 +94,10 @@ def ConvDiscriminator(input_shape=(None, 32, 32, 3),
 
     # uncompress
     h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
-    h = tf.reshape(h, input_shape) # unflatten
+    h = tf.reshape(h, (1, 32, 32, 3)) # unflatten
 
     # 1
-    h = keras.layers.Conv2D(dim, 3, strides=2, padding='same')(h)
+    h = keras.layers.Conv2D(dim, 4, strides=2, padding='same')(h)
     h = tf.nn.leaky_relu(h, alpha=0.2)
 
     for _ in range(n_downsamplings - 1):
