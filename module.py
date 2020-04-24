@@ -82,7 +82,7 @@ def ResnetGenerator(input_shape=(32, 32, 3),
 
     return keras.Model(inputs=inputs, outputs=h)
 
-def ConvDiscriminator(input_shape=(32, 32, 3),
+def ConvDiscriminator(input_shape=(None, 32, 32, 3),
                       dim=64,
                       n_downsamplings=3,
                       norm='instance_norm'):
