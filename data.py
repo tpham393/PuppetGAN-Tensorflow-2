@@ -1,15 +1,32 @@
 import numpy as np
 import tensorflow as tf
 import tf2lib as tl
+from PIL import Image
+
+
+def split_B(B_tuple_img):
+    # need the following line assuming B_tuple_img is a pathname
+    img = Image.open(B_tuple_img)
+
+    b2_box = (0, 0, 32, 32)
+    b2 = img.crop(b2_box)
+
+    b1_box = (0, 32, 32, 64)
+    b1 = img.crop(b1_box)
+
+    b3_box = (0, 64, 32, 96)
+    b3 = img.crop(b3_box)
+
+    return b1, b2, b3
 
 
 def make_dataset(img_paths, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=True, repeat=1):
     if training:
         @tf.function
         def _map_fn(img):  # preprocessing
-            #img = tf.image.random_flip_left_right(img)
-            img = tf.image.resize(img, [crop_size, crop_size])
-            #img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
+            img = tf.image.random_flip_left_right(img)
+            img = tf.image.resize(img, [load_size, load_size])
+            img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
             img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
             img = img * 2 - 1
             return img

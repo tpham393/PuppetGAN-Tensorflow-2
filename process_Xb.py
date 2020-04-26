@@ -8,17 +8,26 @@ def process_syn_imgs(save_dir, img_filepath):
     if not os.path.exists(os.path.join(save_dir, 'cropped')):
         os.makedirs(os.path.join(save_dir, 'cropped'))
 
+    if not os.path.exists(os.path.join(save_dir, 'b1')):
+        os.makedirs(os.path.join(save_dir, 'b1'))
+    
+    if not os.path.exists(os.path.join(save_dir, 'b2')):
+        os.makedirs(os.path.join(save_dir, 'b2'))
+    
+    if not os.path.exists(os.path.join(save_dir, 'b3')):
+        os.makedirs(os.path.join(save_dir, 'b3'))
+
     b2 = (0, 0, 32, 32)
     crop_b2 = img.crop(b2)
-    crop_b2.save(save_dir + '/cropped/b2_' + str(img_name) + '.png')
+    crop_b2.save(save_dir + '/b1/b2_' + str(img_name) + '.png')
 
     b1 = (0, 32, 32, 64)
     crop_b1 = img.crop(b1)
-    crop_b1.save(save_dir + '/cropped/b1_' + str(img_name) + '.png')
+    crop_b1.save(save_dir + '/b2/b1_' + str(img_name) + '.png')
 
     b3 = (0, 64, 32, 96)
     crop_b3 = img.crop(b3)
-    crop_b3.save(save_dir + '/cropped/b3_' + str(img_name) + '.png')
+    crop_b3.save(save_dir + '/b3/b3_' + str(img_name) + '.png')
 
 
 if __name__ == '__main__':

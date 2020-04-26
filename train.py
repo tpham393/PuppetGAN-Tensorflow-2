@@ -19,8 +19,8 @@ import module
 
 py.arg('--dataset', default='digit-data')
 py.arg('--datasets_dir', default='digit-data')
-# py.arg('--load_size', type=int, default=286)  # load image to this size
-# py.arg('--crop_size', type=int, default=256)  # then crop to this size
+py.arg('--load_size', type=int, default=36)  # load image to this size
+py.arg('--crop_size', type=int, default=32)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
 py.arg('--img_size', type=int, default=32)
 py.arg('--epochs', type=int, default=200)
@@ -32,6 +32,9 @@ py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wg
 py.arg('--gradient_penalty_weight', type=float, default=10.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
+py.arg('--attr_loss_weight', type=float, default=5.0)
+py.arg('--rest_loss_weight', type=float, default=5.0)
+py.arg('--rec_loss_weight', type=float, default=10.0)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 args = py.args()
 
@@ -48,7 +51,10 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # ==============================================================================
 
 real_img_paths = py.glob(py.join(args.datasets_dir, 'real-digits', 'train'), '*.png')
-syn_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'cropped'), '*.png')
+syn_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'cropped'), '*.png') # default does not search subdirectories
+# b1_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b1'), '*.png')
+# b2_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b2'), '*.png')
+# b3_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b3'), '*.png')
 A_B_dataset, len_dataset = data.make_zip_dataset(real_img_paths, syn_img_paths, args.batch_size, args.img_size, args.img_size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
@@ -56,6 +62,9 @@ B2A_pool = data.ItemPool(args.pool_size)
 
 real_img_paths_test = py.glob(py.join(args.datasets_dir, 'real-digits', 'test'), '*.png')
 syn_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'cropped'), '*.png')
+# b1_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b1'), '*.png')
+# b2_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b2'), '*.png')
+# b3_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b3'), '*.png')
 A_B_dataset_test, _ = data.make_zip_dataset(real_img_paths_test, syn_img_paths_test, args.batch_size, args.img_size, args.img_size, training=False, repeat=True)
 
 
@@ -63,18 +72,14 @@ A_B_dataset_test, _ = data.make_zip_dataset(real_img_paths_test, syn_img_paths_t
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
+full_embed = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
 
-D_A = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
+decode_A = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
+decode_B = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
-###############################################################
-# Addition of supervised loss (on synth data)
-###############################################################
 supervised_loss_fn = tf.losses.MeanAbsoluteError()
 
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
@@ -90,79 +95,253 @@ D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.be
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        A2B = G_A2B(A, training=True)
-        B2A = G_B2A(B, training=True)
-        A2B2A = G_B2A(A2B, training=True)
-        B2A2B = G_A2B(B2A, training=True)
-        A2A = G_B2A(A, training=True)
-        B2B = G_A2B(B, training=True)
+        attr_emb_A = full_embed(A, training=True)[:64]
+        rest_emb_A = full_embed(A, training=True)[64:]
 
-        A2B_d_logits = D_B(A2B, training=True)
-        B2A_d_logits = D_A(B2A, training=True)
+        b1, b2, b3 = data.split_B(B)
 
-        A2B_g_loss = g_loss_fn(A2B_d_logits)
-        B2A_g_loss = g_loss_fn(B2A_d_logits)
-        A2B2A_cycle_loss = cycle_loss_fn(A, A2B2A)
-        B2A2B_cycle_loss = cycle_loss_fn(B, B2A2B)
-        A2A_id_loss = identity_loss_fn(A, A2A)
-        B2B_id_loss = identity_loss_fn(B, B2B)
+        attr_emb_b1 = full_embed(b1, training=True)[:64]
+        rest_emb_b1 = full_embed(b1, training=True)[64:]
+        attr_emb_b2 = full_embed(b2, training=True)[:64]
+        rest_emb_b2 = full_embed(b2, training=True)[64:]
+        attr_emb_b3 = full_embed(b3, training=True)[:64]
+        rest_emb_b3 = full_embed(b3, training=True)[64:]
 
-        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
+        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
+        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
+        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
+        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
+        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
+        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
+        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
+        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
 
-    G_grad = t.gradient(G_loss, G_A2B.trainable_variables + G_B2A.trainable_variables)
-    G_optimizer.apply_gradients(zip(G_grad, G_A2B.trainable_variables + G_B2A.trainable_variables))
+        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
+        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
+        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
+        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
+        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
+        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
+        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
+        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], 0), training=True)
+        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], 0), training=True)
+        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
 
-    return A2B, B2A, {'A2B_g_loss': A2B_g_loss,
-                      'B2A_g_loss': B2A_g_loss,
-                      'A2B2A_cycle_loss': A2B2A_cycle_loss,
-                      'B2A2B_cycle_loss': B2A2B_cycle_loss,
-                      'A2A_id_loss': A2A_id_loss,
-                      'B2B_id_loss': B2B_id_loss}
+        # GAN loss for C_A
+        aa_A_g_loss = g_loss_fn(aa_D_A_logits)
+        b1b1_A_g_loss = g_loss_fn(b1b1_D_A_logits)
+        b1b2_A_g_loss = g_loss_fn(b1b2_D_A_logits)
+        b1b3_A_g_loss = g_loss_fn(b1b3_D_A_logits)
+        b2b1_A_g_loss = g_loss_fn(b2b1_D_A_logits)
+        b2b2_A_g_loss = g_loss_fn(b2b2_D_A_logits)
+        b2b3_A_g_loss = g_loss_fn(b2b3_D_A_logits)
+        b3b1_A_g_loss = g_loss_fn(b3b1_D_A_logits)
+        b3b2_A_g_loss = g_loss_fn(b3b2_D_A_logits)
+        b3b3_A_g_loss = g_loss_fn(b3b3_D_A_logits)
+
+        # GAN loss for C_B
+        aa_B_g_loss = g_loss_fn(aa_D_B_logits)
+        b1b1_B_g_loss = g_loss_fn(b1b1_D_B_logits)
+        b1b2_B_g_loss = g_loss_fn(b1b2_D_B_logits)
+        b1b3_B_g_loss = g_loss_fn(b1b3_D_B_logits)
+        b2b1_B_g_loss = g_loss_fn(b2b1_D_B_logits)
+        b2b2_B_g_loss = g_loss_fn(b2b2_D_B_logits)
+        b2b3_B_g_loss = g_loss_fn(b2b3_D_B_logits)
+        b3b1_B_g_loss = g_loss_fn(b3b1_D_B_logits)
+        b3b2_B_g_loss = g_loss_fn(b3b2_D_B_logits)
+        b3b3_B_g_loss = g_loss_fn(b3b3_D_B_logits)
+
+        # A2B and B2A cycle losses
+        A2B2A_cycle_loss = cycle_loss_fn(decode_A(tf.concat([attr_emb_A, rest_emb_A])), \
+                                        decode_A(full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A])))[:64], \
+                                                full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A])))[64:]))
+        b12A2b1_cycle_loss = cycle_loss_fn(decode_B(tf.concat([attr_emb_b1, rest_emb_b1])), \
+                                            decode_B(full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1])))[:64], \
+                                                    full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1])))[64:]))
+        b22A2b2_cycle_loss = cycle_loss_fn(decode_B(tf.concat([attr_emb_b2, rest_emb_b2])), \
+                                            decode_B(full_embed(decode_A(attr_emb_b2, rest_emb_b2))[:64], \
+                                                    full_embed(decode_A(attr_emb_b2, rest_emb_b2))[64:]))
+        b32A2b3_cycle_loss = cycle_loss_fn(decode_B(tf.concat([attr_emb_b2, rest_emb_b2])), \
+                                            decode_B(full_embed(decode_A(attr_emb_b3, rest_emb_b3))[:64], \
+                                                    full_embed(decode_A(attr_emb_b3, rest_emb_b3))[64:]))
+
+        # compositional/attribue cycle losses
+        a_tilde = decode_A(tf.concat([attr_emb_b1, rest_emb_A]))
+        b_tilde = decode_B(tf.concat([attr_emb_A, rest_emb_b1])) # any b works for this because we're trying to constrain a to keep attr_emb_A
+        a_comp_cycle_loss = cycle_loss_fn(decode_A(tf.concat([attr_emb_A, rest_emb_A])), \
+                                            decode_A(tf.concat([full_embed(b_tilde, Training=False)[:64], rest_emb_A])) )
+        b3_comp_cycle_loss = cycle_loss_fn(decode_B(tf.concat([attr_emb_b3, rest_emb_b3])), \
+                                            decode_B(tf.concat[full_embed(a_tilde, Training=False)[64:], rest_emb_b2]))
+
+        # identity losses
+        A2A_id_loss = identity_loss_fn(A, tf.concat([attr_emb_A, rest_emb_A]))
+        b12b1_id_loss = identity_loss_fn(b1, tf.concat([attr_emb_b1, rest_emb_b1]))
+        b22b2_id_loss = identity_loss_fn(b2, tf.concat([attr_emb_b2, rest_emb_b2]))
+        b32b3_id_loss = identity_loss_fn(b3, tf.concat([attr_emb_b3, rest_emb_b3]))
+
+        # supervised loss on synth data
+        b3_constr_loss = supervised_loss_fn(b3, tf.concat([attr_emb_b1, rest_emb_b2]))
+
+        G_loss = (aa_A_g_loss + b1b1_A_g_loss + b1b2_A_g_loss + b1b3_A_g_loss + b2b1_A_g_loss + b2b2_A_g_loss + b2b3_A_g_loss + \
+                b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss) + \
+                (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
+                b3b1_B_g_loss + b3b2_B_g_loss + b3b3_B_g_loss) + \
+                (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight + \
+                (a_comp_cycle_loss + b3_comp_cycle_loss) * args.attr_loss_weight + \
+                (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight
+                # () * args.rest_loss_weight + \
+
+        # G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
+
+    G_grad = t.gradient(G_loss, attr_emb_A.trainable_variables + rest_emb_A.trainable_variables + \
+                                attr_emb_b1.trainable_variables + rest_emb_b1.trainable_variables + \
+                                attr_emb_b2.trainable_variables + rest_emb_b2.trainable_variables + \
+                                attr_emb_b3.trainable_variables + rest_emb_b3.trainable_variables)
+    G_optimizer.apply_gradients(zip(G_grad, \
+                                attr_emb_A.trainable_variables + rest_emb_A.trainable_variables + \
+                                attr_emb_b1.trainable_variables + rest_emb_b1.trainable_variables + \
+                                attr_emb_b2.trainable_variables + rest_emb_b2.trainable_variables + \
+                                attr_emb_b3.trainable_variables + rest_emb_b3.trainable_variables))
+
+    return attr_emb_A, rest_emb_A, \
+            attr_emb_b1, rest_emb_b1, \
+            attr_emb_b2, rest_emb_b2, \
+            attr_emb_b3, rest_emb_b3, \
+                {'A_g_loss': (aa_A_g_loss + b1b1_A_g_loss + b1b2_A_g_loss + b1b3_A_g_loss + b2b1_A_g_loss + b2b2_A_g_loss + b2b3_A_g_loss + \
+                            b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss),
+                'B_g_loss': (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
+                            b3b1_B_g_loss + b3b2_B_g_loss + b3b3_B_g_loss),
+                'A2B2A_cycle_loss': A2B2A_cycle_loss,
+                'b12A2b1_cycle_loss': b12A2b1_cycle_loss,
+                'b22A2b2_cycle_loss': b22A2b2_cycle_loss,
+                'b32A2b3_cycle_loss': b32A2b3_cycle_loss,
+                'a_comp_cycle_loss': a_comp_cycle_loss,
+                'b3_comp_cycle_loss': b3_comp_cycle_loss,
+                'A2A_id_loss': A2A_id_loss,
+                'b12b1_id_loss': b12b1_id_loss,
+                'b22b2_id_loss': b22b2_id_loss,
+                'b32b3_id_loss': b32b3_id_loss}
 
 
 @tf.function
-def train_D(A, B, A2B, B2A):
+def train_D(A, B):
     with tf.GradientTape() as t:
-        A_d_logits = D_A(A, training=True)
-        B2A_d_logits = D_A(B2A, training=True)
-        B_d_logits = D_B(B, training=True)
-        A2B_d_logits = D_B(A2B, training=True)
+        attr_emb_A = full_embed(A, training=True)[:64]
+        rest_emb_A = full_embed(A, training=True)[64:]
 
-        A_d_loss, B2A_d_loss = d_loss_fn(A_d_logits, B2A_d_logits)
-        B_d_loss, A2B_d_loss = d_loss_fn(B_d_logits, A2B_d_logits)
-        D_A_gp = gan.gradient_penalty(functools.partial(D_A, training=True), A, B2A, mode=args.gradient_penalty_mode)
-        D_B_gp = gan.gradient_penalty(functools.partial(D_B, training=True), B, A2B, mode=args.gradient_penalty_mode)
+        b1, b2, b3 = data.split_B(B)
 
-        D_loss = (A_d_loss + B2A_d_loss) + (B_d_loss + A2B_d_loss) + (D_A_gp + D_B_gp) * args.gradient_penalty_weight
+        attr_emb_b1 = full_embed(b1, training=True)[:64]
+        rest_emb_b1 = full_embed(b1, training=True)[64:]
+        attr_emb_b2 = full_embed(b2, training=True)[:64]
+        rest_emb_b2 = full_embed(b2, training=True)[64:]
+        attr_emb_b3 = full_embed(b3, training=True)[:64]
+        rest_emb_b3 = full_embed(b3, training=True)[64:]
+        
+        # D_A logits
+        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
+        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
+        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
+        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
+        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
+        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
+        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
+        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
 
-    D_grad = t.gradient(D_loss, D_A.trainable_variables + D_B.trainable_variables)
-    D_optimizer.apply_gradients(zip(D_grad, D_A.trainable_variables + D_B.trainable_variables))
+        # D_B logits
+        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
+        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
+        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
+        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
+        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
+        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
+        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
+        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], 0), training=True)
+        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], 0), training=True)
+        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
 
-    return {'A_d_loss': A_d_loss + B2A_d_loss,
-            'B_d_loss': B_d_loss + A2B_d_loss,
-            'D_A_gp': D_A_gp,
-            'D_B_gp': D_B_gp}
+        # A_d with all other D_A losses (not sure if we need to permutate for all other possibilities)
+        A_d_loss1, b1b1_d_loss1 = d_loss_fn(aa_D_A_logits, b1b1_D_A_logits)
+        A_d_loss2, b1b2_d_loss1 = d_loss_fn(aa_D_A_logits, b1b2_D_A_logits)
+        A_d_loss3, b1b3_d_loss1 = d_loss_fn(aa_D_A_logits, b1b3_D_A_logits)
+        A_d_loss4, b2b1_d_loss1 = d_loss_fn(aa_D_A_logits, b2b1_D_A_logits)
+        A_d_loss5, b2b2_d_loss1 = d_loss_fn(aa_D_A_logits, b2b2_D_A_logits)
+        A_d_loss6, b2b3_d_loss1 = d_loss_fn(aa_D_A_logits, b2b3_D_A_logits)
+        A_d_loss7, b3b1_d_loss1 = d_loss_fn(aa_D_A_logits, b3b1_D_A_logits)
+        A_d_loss8, b3b2_d_loss1 = d_loss_fn(aa_D_A_logits, b3b2_D_A_logits)
+        A_d_loss9, b3b3_d_loss1 = d_loss_fn(aa_D_A_logits, b3b3_D_A_logits)
+
+        # B_d with all other D_A losses (not sure if we need to permutate for all other possibilities)
+        B_d_loss1, b1b1_d_loss2 = d_loss_fn(aa_D_A_logits, b1b1_D_A_logits)
+        B_d_loss2, b1b2_d_loss2 = d_loss_fn(aa_D_A_logits, b1b2_D_A_logits)
+        B_d_loss3, b1b3_d_loss2 = d_loss_fn(aa_D_A_logits, b1b3_D_A_logits)
+        B_d_loss4, b2b1_d_loss2 = d_loss_fn(aa_D_A_logits, b2b1_D_A_logits)
+        B_d_loss5, b2b2_d_loss2 = d_loss_fn(aa_D_A_logits, b2b2_D_A_logits)
+        B_d_loss6, b2b3_d_loss2 = d_loss_fn(aa_D_A_logits, b2b3_D_A_logits)
+        B_d_loss7, b3b1_d_loss2 = d_loss_fn(aa_D_A_logits, b3b1_D_A_logits)
+        B_d_loss8, b3b2_d_loss2 = d_loss_fn(aa_D_A_logits, b3b2_D_A_logits)
+        B_d_loss9, b3b3_d_loss2 = d_loss_fn(aa_D_A_logits, b3b3_D_A_logits)
+
+        # unsure how to translate this for our problem since we are not trying to translate between synth and real domains
+        # D_A_gp = gan.gradient_penalty(functools.partial(decode_A, training=True), A, B2A, mode=args.gradient_penalty_mode)
+        # D_B_gp = gan.gradient_penalty(functools.partial(decode_B, training=True), B, A2B, mode=args.gradient_penalty_mode)
+
+        D_loss = (A_d_loss1 + b1b1_d_loss1 + A_d_loss2 + b1b2_d_loss1 + A_d_loss3 + b1b3_d_loss1 + A_d_loss4 + b2b1_d_loss1 + \
+                A_d_loss5 + b2b2_d_loss1 + A_d_loss6 + b2b3_d_loss1 + A_d_loss7 + b3b1_d_loss1 + A_d_loss8 + b3b2_d_loss1 + A_d_loss9 + b3b3_d_loss1) + \
+                (B_d_loss1 + b1b1_d_loss2 + B_d_loss2 + b1b2_d_loss2 + B_d_loss3 + b1b3_d_loss2 + B_d_loss4 + b2b1_d_loss2 + \
+                B_d_loss5 + b2b2_d_loss2 + B_d_loss6 + b2b3_d_loss2 + B_d_loss7 + b3b1_d_loss2 + B_d_loss8 + b3b2_d_loss2 + B_d_loss9 + b3b3_d_loss2)
+        # D_loss = (A_d_loss + B2A_d_loss) + (B_d_loss + A2B_d_loss) + (D_A_gp + D_B_gp) * args.gradient_penalty_weight
+
+    D_grad = t.gradient(D_loss, decode_A.trainable_variables + decode_B.trainable_variables)
+    D_optimizer.apply_gradients(zip(D_grad, decode_A.trainable_variables + decode_B.trainable_variables))
+
+    return {'A_d_loss': (A_d_loss1 + b1b1_d_loss1 + A_d_loss2 + b1b2_d_loss1 + A_d_loss3 + b1b3_d_loss1 + A_d_loss4 + b2b1_d_loss1 + \
+                A_d_loss5 + b2b2_d_loss1 + A_d_loss6 + b2b3_d_loss1 + A_d_loss7 + b3b1_d_loss1 + A_d_loss8 + b3b2_d_loss1 + A_d_loss9 + b3b3_d_loss1),
+            'B_d_loss': (B_d_loss1 + b1b1_d_loss2 + B_d_loss2 + b1b2_d_loss2 + B_d_loss3 + b1b3_d_loss2 + B_d_loss4 + b2b1_d_loss2 + \
+                B_d_loss5 + b2b2_d_loss2 + B_d_loss6 + b2b3_d_loss2 + B_d_loss7 + b3b1_d_loss2 + B_d_loss8 + b3b2_d_loss2 + B_d_loss9 + b3b3_d_loss2)}
+            # 'D_A_gp': D_A_gp,
+            # 'D_B_gp': D_B_gp}
 
 
 def train_step(A, B):
-    A2B, B2A, G_loss_dict = train_G(A, B)
+    attr_emb_A, rest_emb_A, \
+        attr_emb_b1, rest_emb_b1, \
+        attr_emb_b2, rest_emb_b2, \
+        attr_emb_b3, rest_emb_b3, \
+        G_loss_dict = train_G(A, B)
 
-    # cannot autograph `A2B_pool`
-    A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
-    B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
+    # # cannot autograph `A2B_pool`
+    # A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
+    # B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
 
-    D_loss_dict = train_D(A, B, A2B, B2A)
+    D_loss_dict = train_D(A, B)
 
     return G_loss_dict, D_loss_dict
 
 
+# @tf.function
+# def sample(A, B):
+#     A2B = G_A2B(A, training=False)
+#     B2A = G_B2A(B, training=False)
+#     A2B2A = G_B2A(A2B, training=False)
+#     B2A2B = G_A2B(B2A, training=False)
+#     return A2B, B2A, A2B2A, B2A2B
+
 @tf.function
 def sample(A, B):
-    A2B = G_A2B(A, training=False)
-    B2A = G_B2A(B, training=False)
-    A2B2A = G_B2A(A2B, training=False)
-    B2A2B = G_A2B(B2A, training=False)
-    return A2B, B2A, A2B2A, B2A2B
+    b1, b2, b3 = data.split_B(B)
+
+    A = tf.concat([full_embed(A, training=False)[:64], full_embed(A, training=False)[64:]])
+    b3 = tf.concat([full_embed(b1, training=False)[:64], full_embed(b2, training=False)[64:]])
+    Ab1 = tf.concat([full_embed(A, training=False)[:64], full_embed(b1, training=False)[64:]])
+    Ab2 = tf.concat([full_embed(A, training=False)[:64], full_embed(b2, training=False)[64:]])
+    Ab3 = tf.concat([full_embed(A, training=False)[:64], full_embed(b3, training=False)[64:]])
+
+    return A, b3, Ab1, Ab2, Ab3
 
 
 # ==============================================================================
@@ -216,8 +395,9 @@ with train_summary_writer.as_default():
             # sample
             if G_optimizer.iterations.numpy() % 100 == 0:
                 A, B = next(test_iter)
-                A2B, B2A, A2B2A, B2A2B = sample(A, B)
-                img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
+                # A2B, B2A, A2B2A, B2A2B = sample(A, B)
+                # img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
+                img = im.immerge(np.concatenate([A, B], axis=0), n_rows=2)
                 im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
 
         # save checkpoint
