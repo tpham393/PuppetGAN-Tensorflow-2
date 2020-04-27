@@ -51,7 +51,7 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 # ==============================================================================
 
 real_img_paths = py.glob(py.join(args.datasets_dir, 'real-digits', 'train'), '*.png')
-syn_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'cropped'), '*.png') # default does not search subdirectories
+syn_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train'), '*.png') # default does not search subdirectories
 # b1_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b1'), '*.png')
 # b2_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b2'), '*.png')
 # b3_img_paths = py.glob(py.join(args.datasets_dir, 'syn-digits', 'train', 'b3'), '*.png')
@@ -61,7 +61,7 @@ A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
 real_img_paths_test = py.glob(py.join(args.datasets_dir, 'real-digits', 'test'), '*.png')
-syn_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'cropped'), '*.png')
+syn_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test'), '*.png')
 # b1_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b1'), '*.png')
 # b2_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b2'), '*.png')
 # b3_img_paths_test = py.glob(py.join(args.datasets_dir, 'syn-digits', 'test', 'b3'), '*.png')
