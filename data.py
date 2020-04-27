@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tf2lib as tl
 from PIL import Image
+import tensorflow.keras as keras
 
 
 # def split_B(B_tuple_img):
@@ -21,13 +22,17 @@ from PIL import Image
 
 def split_B(B_tuple_img_tensor):
     print(B_tuple_img_tensor.shape)
-    
+
     b2 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 0, 0, 32, 32)
     b1 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 32, 0, 32, 32)
     b3 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 64, 0, 32, 32)
 
     return b1, b2, b3
 
+def uncompress(embedding):
+    embedding = keras.layers.Dense(tf.keras.backend.prod(embedding.shape))(embedding)
+    embedding = tf.reshape(h, (1, 32, 32, 3)) # unflatten
+    return embedding
 
 def make_dataset(img_paths, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=True, repeat=1):
     if training:

@@ -155,23 +155,25 @@ def train_G(A, B):
 
         # A2B and B2A cycle losses
         A2B2A_cycle_loss = cycle_loss_fn(A, \
-                                        tf.concat([full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[:64], \
-                                        full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[64:]], axis=0))
+                                        data.uncompress(tf.concat([full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[:64], \
+                                        full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[64:]], axis=0)))
         b12A2b1_cycle_loss = cycle_loss_fn(b1, \
-                                        tf.concat([full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[64:]], axis=0))
+                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[:64], \
+                                                full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[64:]], axis=0)))
         b22A2b2_cycle_loss = cycle_loss_fn(b2, \
-                                        tf.concat([full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[64:]], axis=0))
+                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[:64], \
+                                                full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[64:]], axis=0)))
         b32A2b3_cycle_loss = cycle_loss_fn(b3, \
-                                        tf.concat([full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[64:]], axis=0))
+                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[:64], \
+                                                full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[64:]], axis=0)))
 
         # compositional/attribue cycle losses
         a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=0)
         b_tilde = tf.concat([attr_emb_A, rest_emb_b1], axis=0) # any b works for this because we're trying to constrain a to keep attr_emb_A
-        a_comp_cycle_loss = cycle_loss_fn(A, tf.concat([full_embed(b_tilde, Training=False)[:64], rest_emb_A], axis=0))
-        b3_comp_cycle_loss = cycle_loss_fn(b3, tf.concat([full_embed(a_tilde, Training=False)[64:], rest_emb_b2], axis=0))
+        a_comp_cycle_loss = cycle_loss_fn(A, \
+                                        data.uncompress(tf.concat([full_embed(b_tilde, Training=False)[:64], rest_emb_A], axis=0)))
+        b3_comp_cycle_loss = cycle_loss_fn(b3, \
+                                        data.uncompress(tf.concat([full_embed(a_tilde, Training=False)[64:], rest_emb_b2], axis=0)))
 
         # identity losses
         A2A_id_loss = identity_loss_fn(A, tf.concat([attr_emb_A, rest_emb_A], axis=0))
