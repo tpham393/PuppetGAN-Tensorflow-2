@@ -4,18 +4,25 @@ import tf2lib as tl
 from PIL import Image
 
 
-def split_B(B_tuple_img):
-    # need the following line assuming B_tuple_img is a pathname
-    img = Image.open(B_tuple_img)
+# def split_B(B_tuple_img):
+#     # need the following line assuming B_tuple_img is a pathname
+#     img = Image.open(B_tuple_img)
 
-    b2_box = (0, 0, 32, 32)
-    b2 = img.crop(b2_box)
+#     b2_box = (0, 0, 32, 32)
+#     b2 = img.crop(b2_box)
 
-    b1_box = (0, 32, 32, 64)
-    b1 = img.crop(b1_box)
+#     b1_box = (0, 32, 32, 64)
+#     b1 = img.crop(b1_box)
 
-    b3_box = (0, 64, 32, 96)
-    b3 = img.crop(b3_box)
+#     b3_box = (0, 64, 32, 96)
+#     b3 = img.crop(b3_box)
+
+#     return b1, b2, b3
+
+def split_B(B_tuple_img_tensor):
+    b2 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 0, 0, 32, 32)
+    b1 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 32, 0, 32, 32)
+    b3 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 64, 0, 32, 32)
 
     return b1, b2, b3
 
