@@ -20,6 +20,8 @@ from PIL import Image
 #     return b1, b2, b3
 
 def split_B(B_tuple_img_tensor):
+    print(B_tuple_img_tensor.shape)
+    
     b2 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 0, 0, 32, 32)
     b1 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 32, 0, 32, 32)
     b3 = tf.image.crop_to_bounding_box(B_tuple_img_tensor, 64, 0, 32, 32)
