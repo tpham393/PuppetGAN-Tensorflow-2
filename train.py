@@ -154,8 +154,8 @@ def train_G(A, B):
         b3b3_B_g_loss = g_loss_fn(b3b3_D_B_logits)
 
         # A2B and B2A cycle losses
-        A2B2A_cycle_loss = cycle_loss_fn(decode_A(tf.concat([attr_emb_A, rest_emb_A])), \
-                                        decode_A(full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A])))[:64], \
+        A2B2A_cycle_loss = cycle_loss_fn(decode_A(tf.concat([attr_emb_A, rest_emb_A])), 
+                                        decode_A(full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A])))[:64], 
                                                 full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A])))[64:]))
         b12A2b1_cycle_loss = cycle_loss_fn(decode_B(tf.concat([attr_emb_b1, rest_emb_b1])), \
                                             decode_B(full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1])))[:64], \
