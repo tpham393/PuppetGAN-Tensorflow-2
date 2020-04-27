@@ -352,10 +352,9 @@ def sample(A, B):
 ep_cnt = tf.Variable(initial_value=0, trainable=False, dtype=tf.int64)
 
 # checkpoint
-checkpoint = tl.Checkpoint(dict(G_A2B=G_A2B,
-                                G_B2A=G_B2A,
-                                D_A=D_A,
-                                D_B=D_B,
+checkpoint = tl.Checkpoint(dict(full_embed=full_embed,
+                                decode_A=decode_A,
+                                decode_B=decode_B,
                                 G_optimizer=G_optimizer,
                                 D_optimizer=D_optimizer,
                                 ep_cnt=ep_cnt),
