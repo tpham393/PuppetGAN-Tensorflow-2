@@ -82,8 +82,8 @@ def decoder(output_shape=(32, 32, 3),
     Norm = _get_norm_layer(norm)
 
     h = inputs = keras.Input(shape=(None, 128))
-    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
-    h = tf.reshape(h, input_shape) # unflatten
+    h = keras.layers.Dense(tf.keras.backend.prod(output_shape))(h)
+    h = tf.reshape(h, (1, 32, 32, 3)) # unflatten
 
     # 4
     for _ in range(n_downsamplings):
