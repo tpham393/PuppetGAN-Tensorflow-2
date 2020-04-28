@@ -141,7 +141,7 @@ def train_G(A, B):
         b1b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b3], 1), shape=[1,1,128])), training=True)
         b2b1_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b1], 1), shape=[1,1,128])), training=True)
         b2b2_D_A_logits = D_A(B22A, training=True)
-        b2b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3. rest_emb_b1], 1), shape=[1,1,128])), training=True)
+        b2b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b1], 1), shape=[1,1,128])), training=True)
         b3b1_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b2], 1), shape=[1,1,128])), training=True)
         b3b2_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128])), training=True)
         b3b3_D_A_logits = D_A(B32A, training=True)
@@ -213,15 +213,8 @@ def train_G(A, B):
                 (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight + \
                 (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight 
 
-    G_grad = t.gradient(G_loss, attr_emb_A.trainable_variables + rest_emb_A.trainable_variables + \
-                                attr_emb_b1.trainable_variables + rest_emb_b1.trainable_variables + \
-                                attr_emb_b2.trainable_variables + rest_emb_b2.trainable_variables + \
-                                attr_emb_b3.trainable_variables + rest_emb_b3.trainable_variables)
-    G_optimizer.apply_gradients(zip(G_grad, \
-                                attr_emb_A.trainable_variables + rest_emb_A.trainable_variables + \
-                                attr_emb_b1.trainable_variables + rest_emb_b1.trainable_variables + \
-                                attr_emb_b2.trainable_variables + rest_emb_b2.trainable_variables + \
-                                attr_emb_b3.trainable_variables + rest_emb_b3.trainable_variables))
+    G_grad = t.gradient(G_loss, full_embed.trainable_variables)
+    G_optimizer.apply_gradients(zip(G_grad, full_embed.trainable_variables))
 
     return attr_emb_A, rest_emb_A, \
             attr_emb_b1, rest_emb_b1, \
