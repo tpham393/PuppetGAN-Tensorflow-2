@@ -189,18 +189,18 @@ def train_G(A, B):
         B32A_d_logits = D_A(B32A, training=True)
 
         # compositional/attribue cycle losses
-        a_tilde = decode_A(tf.reshape(tf.concat([module.gaussian_noise_layer(attr_emb_b1), \
-                                                module.gaussian_noise_layer(rest_emb_A)], 1), shape=[1,1,128]))
-        b_tilde = decode_B(tf.reshape(tf.concat([module.gaussian_noise_layer(attr_emb_A), \
-                                                module.gaussian_noise_layer(rest_emb_b1)], 1), shape=[1,1,128])) # any b works for this because we're trying to constrain a to keep attr_emb_A & get rid of rest_emb_
+        a_tilde = decode_A(tf.reshape(tf.concat([module.gaussian_noise_layer(attr_emb_b1, std=100), \
+                                                module.gaussian_noise_layer(rest_emb_A, std=100)], 1), shape=[1,1,128]))
+        b_tilde = decode_B(tf.reshape(tf.concat([module.gaussian_noise_layer(attr_emb_A, std=100), \
+                                                module.gaussian_noise_layer(rest_emb_b1, std=100)], 1), shape=[1,1,128])) # any b works for this because we're trying to constrain a to keep attr_emb_A & get rid of rest_emb_
         attr_emb_b_tilde = tf.slice(full_embed(b_tilde), [0,0], [1,64])
         attr_emb_a_tilde = tf.slice(full_embed(a_tilde), [0,0], [1,64])
         a_comp_cycle_loss = cycle_loss_fn(A, decode_A(tf.reshape(tf.concat([ \
-                                                        module.gaussian_noise_layer(attr_emb_b_tilde), \
-                                                        module.gaussian_noise_layer(rest_emb_A)], 1), shape=[1,1,128])))
+                                                        module.gaussian_noise_layer(attr_emb_b_tilde, std=100), \
+                                                        module.gaussian_noise_layer(rest_emb_A, std=100)], 1), shape=[1,1,128])))
         b3_comp_cycle_loss = cycle_loss_fn(b3, decode_B(tf.reshape(tf.concat([ \
-                                                        module.gaussian_noise_layer(attr_emb_a_tilde), \
-                                                        module.gaussian_noise_layer(rest_emb_b2)], 1), shape=[1,1,128])))
+                                                        module.gaussian_noise_layer(attr_emb_a_tilde, std=100), \
+                                                        module.gaussian_noise_layer(rest_emb_b2, std=100)], 1), shape=[1,1,128])))
 
         # identity losses
         A2A_id_loss = identity_loss_fn(A, A2A)
@@ -210,7 +210,8 @@ def train_G(A, B):
 
         # supervised loss on synth data
         b3_constr_loss = supervised_loss_fn(b3, decode_B(tf.reshape(tf.concat([ \
-                                            module.gaussian_noise_layer(attr_emb_b1), module.gaussian_noise_layer(rest_emb_b2)], axis=1), shape=[1,1,128])))
+                                                module.gaussian_noise_layer(attr_emb_b1, std=100), \
+                                                module.gaussian_noise_layer(rest_emb_b2, std=100)], axis=1), shape=[1,1,128])))
 
         G_loss = (aa_A_g_loss + b1b1_A_g_loss + b1b2_A_g_loss + b1b3_A_g_loss + b2b1_A_g_loss + b2b2_A_g_loss + b2b3_A_g_loss + \
                 b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss) + \
