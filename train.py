@@ -381,23 +381,23 @@ def train_step(A, B):
 def sample(A, B):
     b1, b2, b3 = data.split_B(B)
 
-    attr_emb_A = tf.slice(full_embed(A2A), [0,0], [1,64])
-    rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
+    attr_emb_A = tf.slice(full_embed(A, training=False), [0,0], [1,64])
+    rest_emb_A = tf.slice(full_embed(A, training=False), [0,64], [1,64])
 
-    attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
-    rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1,64])
-    attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
-    rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
-    attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
-    rest_emb_b3 = tf.slice(full_embed(B3A2B), [0,64], [1,64])
+    attr_emb_b1 = tf.slice(full_embed(b1, training=False), [0,0], [1,64])
+    rest_emb_b1 = tf.slice(full_embed(b1, training=False), [0,64], [1,64])
+    attr_emb_b2 = tf.slice(full_embed(b2, training=False), [0,0], [1,64])
+    rest_emb_b2 = tf.slice(full_embed(b2, training=False), [0,64], [1,64])
+    attr_emb_b3 = tf.slice(full_embed(b3, training=False), [0,0], [1,64])
+    rest_emb_b3 = tf.slice(full_embed(b3, training=False), [0,64], [1,64])
 
-    A = decode_A(tf.reshape(tf.concat([attr_emb_A, rest_emb_A], axis=1), shape=[1,1,128]))
-    b3 = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b2],axis=1), shape=[1,1,128]))
+    A2A = decode_A(tf.reshape(tf.concat([attr_emb_A, rest_emb_A], axis=1), shape=[1,1,128]))
+    b3_constr = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b2],axis=1), shape=[1,1,128]))
     Ab1 = decode_A(tf.reshape(tf.concat([attr_emb_b1, rest_emb_A], axis=1), shape=[1,1,128]))
     Ab2 = decode_A(tf.reshape(tf.concat([attr_emb_b2, rest_emb_A], axis=1), shape=[1,1,128]))
     Ab3 = decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_A], axis=1), shape=[1,1,128]))
 
-    return A, b3, Ab1, Ab2, Ab3
+    return A2A, b1, b2, b3_constr, Ab1, Ab2, Ab3
 
 
 # ==============================================================================
@@ -452,9 +452,8 @@ with train_summary_writer.as_default():
             # sample
             if G_optimizer.iterations.numpy() % 100 == 0:
                 A, B = next(test_iter)
-                # A2B, B2A, A2B2A, B2A2B = sample(A, B)
-                # img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
-                img = im.immerge(np.concatenate([A, B], axis=0), n_rows=2)
+                A2A, b1, b2, b3_constr, Ab1, Ab2, Ab3 = sample(A, B)
+                img = im.immerge(np.concatenate([A2A, b1, b2, b3_constr, Ab1, Ab2, Ab3], axis=0), n_rows=2)
                 im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
 
         # save checkpoint
