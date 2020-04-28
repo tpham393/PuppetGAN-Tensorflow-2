@@ -238,7 +238,11 @@ def train_G(A, B):
 
 
 @tf.function
-def train_D(A, B, A2A, A2B, B12A, B22A, B32A):
+def train_D(A, B, A2A, A2B, B12A, B22A, B32A, \
+                attr_emb_A, rest_emb_A, \
+                attr_emb_b1, rest_emb_b1, \
+                attr_emb_b2, rest_emb_b2, \
+                attr_emb_b3, rest_emb_b3):
     with tf.GradientTape() as t:
         b1, b2, b3 = data.split_B(B)
         
@@ -260,7 +264,7 @@ def train_D(A, B, A2A, A2B, B12A, B22A, B32A):
         b1b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b3], 1), shape=[1,1,128])), training=True)
         b2b1_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b1], 1), shape=[1,1,128])), training=True)
         b2b2_D_A_logits = D_A(B22A, training=True)
-        b2b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3. rest_emb_b1], 1), shape=[1,1,128])), training=True)
+        b2b3_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b1], 1), shape=[1,1,128])), training=True)
         b3b1_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b2], 1), shape=[1,1,128])), training=True)
         b3b2_D_A_logits = D_A(decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128])), training=True)
         b3b3_D_A_logits = D_A(B32A, training=True)
@@ -356,7 +360,11 @@ def train_step(A, B):
     # A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
     # B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
 
-    D_loss_dict = train_D(A, B, A2A, A2B, B12A, B22A, B32A)
+    D_loss_dict = train_D(A, B, A2A, A2B, B12A, B22A, B32A, \
+                            attr_emb_A, rest_emb_A, \
+                            attr_emb_b1, rest_emb_b1, \
+                            attr_emb_b2, rest_emb_b2, \
+                            attr_emb_b3, rest_emb_b3)
 
     return G_loss_dict, D_loss_dict
 
