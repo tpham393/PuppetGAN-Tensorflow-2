@@ -116,10 +116,10 @@ def train_G(A, B):
         B22A = decode_A(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)
         B32A = decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128]), training=True)
         
-        A2B2A = decode_A(full_embed(A2B), training=True)
-        B12A2B = decode_B(full_embed(B12A), training=True)
-        B22A2B = decode_B(full_embed(B22A), training=True)
-        B32A2B = decode_B(full_embed(B32A), training=True)
+        A2B2A = decode_A(tf.reshape(full_embed(A2B), shape=[1,1,128]), training=True)
+        B12A2B = decode_B(tf.reshape(full_embed(B12A), shape=[1,1,128]), training=True)
+        B22A2B = decode_B(tf.reshape(full_embed(B22A), shape=[1,1,128]), training=True)
+        B32A2B = decode_B(tf.reshape(full_embed(B32A), shape=[1,1,128]), training=True)
 
         # A2B and B2A cycle losses
         A2B2A_cycle_loss = cycle_loss_fn(A, A2B2A)
@@ -190,7 +190,7 @@ def train_G(A, B):
         b3_comp_cycle_loss = cycle_loss_fn(b3, decode_B(tf.reshape(tf.concat([attr_emb_a_tilde, rest_emb_b2], 1)), shape=[1,1,128]))
 
          # for identity losses
-        A2A = decode_A(full_embed(A), training=True)
+        A2A = decode_A(tf.reshape(full_embed(A), shape=[1,1,128]), training=True)
 
         B12B = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
         B22B = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)

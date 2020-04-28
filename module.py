@@ -82,8 +82,8 @@ def decoder(output_shape=(32, 32, 3),
     Norm = _get_norm_layer(norm)
 
     h = inputs = keras.Input(shape=(None, 128))
-    h = keras.layers.Dense(tf.keras.backend.prod(output_shape))(h)
-    h = tf.reshape(h, (1, 32, 32, 3)) # unflatten
+    h = keras.layers.Dense(tf.keras.backend.prod((1,8,8,3)))(h)
+    h = tf.reshape(h, (1, 8, 8, 3)) # unflatten
 
     # 4
     for _ in range(n_downsamplings):
@@ -122,11 +122,7 @@ def ConvDiscriminator(input_shape=(32, 32, 3),
     Norm = _get_norm_layer(norm)
 
     # 0
-    h = inputs = keras.Input(shape=(None, 128))
-
-    # uncompress
-    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
-    h = tf.reshape(h, (1, 32, 32, 3)) # unflatten
+    h = inputs = keras.Input(shape=input_shape)
 
     # 1
     h = keras.layers.Conv2D(dim, 4, strides=2, padding='same')(h)
