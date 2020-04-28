@@ -176,12 +176,14 @@ def train_G(A, B):
         b32A2b3_cycle_loss = cycle_loss_fn(b3,B32A2B)
 
         # compositional/attribue cycle losses
-        a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=1)
-        b_tilde = tf.concat([attr_emb_A, rest_emb_b1], axis=1) # any b works for this because we're trying to constrain a to keep attr_emb_A
-        a_comp_cycle_loss = cycle_loss_fn(A, \
-                                        module.uncompress(tf.concat([tf.slice(b_tilde, [0,64], [1,64]), rest_emb_A], axis=0)))
-        b3_comp_cycle_loss = cycle_loss_fn(b3, \
-                                        module.uncompress(tf.concat([tf.slice(a_tilde, [0,0], [1,64]), rest_emb_b2], axis=0)))
+        # a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=1)
+        b_tilde = G_A2B(module.uncompress(tf.concat([attr_emb_A, rest_emb_b1], axis=1)), \
+                    training=True) # any b works for this because we're trying to constrain a to keep attr_emb_A
+        b_tilde_a = G_B2A(module.uncompress(tf.concat([tf.slice(full_embed(b_tilde), [0,0], [1,64]), rest_emb_A], axis=1)) , \
+                    training=True)
+        a_comp_cycle_loss = cycle_loss_fn(A, b_tilde_a)
+        # b3_comp_cycle_loss = cycle_loss_fn(b3, \
+        #                                 module.uncompress(tf.concat([tf.slice(a_tilde, [0,0], [1,64]), rest_emb_b2], axis=0)))
         # a_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_A, rest_emb_A], axis=1), \
         #                                 tf.concat([full_embed(b_tilde)[:64], rest_emb_A], axis=1))
         # b3_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), \
@@ -200,10 +202,11 @@ def train_G(A, B):
                 b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss) + \
                 (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
                 b3b1_B_g_loss + b3b2_B_g_loss + b3b3_B_g_loss) + \
-                (a_comp_cycle_loss + b3_comp_cycle_loss) * args.attr_loss_weight + \
+                (a_comp_cycle_loss) * args.attr_loss_weight + \
                 (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight + \
                 (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight 
                 #args.rest_loss_weight
+                #  + b3_comp_cycle_loss
 
         # G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
 
@@ -230,7 +233,7 @@ def train_G(A, B):
                 'b22A2b2_cycle_loss': b22A2b2_cycle_loss,
                 'b32A2b3_cycle_loss': b32A2b3_cycle_loss,
                 'a_comp_cycle_loss': a_comp_cycle_loss,
-                'b3_comp_cycle_loss': b3_comp_cycle_loss,
+                # 'b3_comp_cycle_loss': b3_comp_cycle_loss,
                 'A2A_id_loss': A2A_id_loss,
                 'b12b1_id_loss': b12b1_id_loss,
                 'b22b2_id_loss': b22b2_id_loss,
