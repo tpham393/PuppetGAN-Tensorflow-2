@@ -72,7 +72,10 @@ A_B_dataset_test, _ = data.make_zip_dataset(real_img_paths_test, syn_img_paths_t
 # =                                   models                                   =
 # ==============================================================================
 
-full_embed = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
+G_A2B = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
+G_B2A = module.ResnetGenerator(input_shape=(args.img_size, args.img_size, 3))
+
+full_embed = module.compress(input_shape=(args.img_size, args.img_size, 3))
 
 decode_A = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
 decode_B = module.ConvDiscriminator(input_shape=(args.img_size, args.img_size, 3))
@@ -95,39 +98,52 @@ D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.be
 @tf.function
 def train_G(A, B):
     with tf.GradientTape() as t:
-        attr_emb_A = full_embed(A, training=True)[:64]
-        rest_emb_A = full_embed(A, training=True)[64:]
-
         b1, b2, b3 = data.split_B(B)
 
-        attr_emb_b1 = full_embed(b1, training=True)[:64]
-        rest_emb_b1 = full_embed(b1, training=True)[64:]
-        attr_emb_b2 = full_embed(b2, training=True)[:64]
-        rest_emb_b2 = full_embed(b2, training=True)[64:]
-        attr_emb_b3 = full_embed(b3, training=True)[:64]
-        rest_emb_b3 = full_embed(b3, training=True)[64:]
+        A2B = G_A2B(A, training=True)
+        B12A = G_B2A(b1, training=True)
+        B22A = G_B2A(b2, training=True)
+        B32A = G_B2A(b3, training=True)
+        A2B2A = G_B2A(A2B, training=True)
+        B12A2B = G_A2B(B12A, training=True)
+        B22A2B = G_A2B(B22A, training=True)
+        B3A2B = G_A2B(B32A, training=True)
+        A2A = G_B2A(A, training=True)
+        B12B = G_A2B(b1, training=True)
+        B22B = G_A2B(b2, training=True)
+        B32B = G_A2B(b3, training=True)
 
-        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
-        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
-        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
-        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
-        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
-        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
-        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
-        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
-        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
-        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        attr_emb_A = tf.slice(full_embed(A2A), [0,0], [1,64])
+        rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
 
-        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], 0), training=True)
-        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], 0), training=True)
-        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], 0), training=True)
-        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], 0), training=True)
-        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], 0), training=True)
-        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], 0), training=True)
-        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], 0), training=True)
-        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], 0), training=True)
-        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], 0), training=True)
-        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], 0), training=True)
+        attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
+        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+        attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
+        rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
+        attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
+        rest_emb_b3 = tf.slice(full_embed(B3A2B), [0,64], [1,64])
+
+        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], 1), training=True)
+        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 1), training=True)
+        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], 1), training=True)
+        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], 1), training=True)
+        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], 1), training=True)
+        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], 1), training=True)
+        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], 1), training=True)
+        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 1), training=True)
+        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 1), training=True)
+        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 1), training=True)
+
+        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], 1), training=True)
+        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], 1), training=True)
+        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], 1), training=True)
+        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], 1), training=True)
+        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], 1), training=True)
+        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], 1), training=True)
+        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], 1), training=True)
+        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], 1), training=True)
+        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], 1), training=True)
+        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], 1), training=True)
 
         # GAN loss for C_A
         aa_A_g_loss = g_loss_fn(aa_D_A_logits)
@@ -153,45 +169,41 @@ def train_G(A, B):
         b3b2_B_g_loss = g_loss_fn(b3b2_D_B_logits)
         b3b3_B_g_loss = g_loss_fn(b3b3_D_B_logits)
 
-        # A2B and B2A cycle losses
-        A2B2A_cycle_loss = cycle_loss_fn(A, \
-                                        data.uncompress(tf.concat([full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[:64], \
-                                        full_embed(decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0)))[64:]], axis=0)))
-        b12A2b1_cycle_loss = cycle_loss_fn(b1, \
-                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0)))[64:]], axis=0)))
-        b22A2b2_cycle_loss = cycle_loss_fn(b2, \
-                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0)))[64:]], axis=0)))
-        b32A2b3_cycle_loss = cycle_loss_fn(b3, \
-                                        data.uncompress(tf.concat([full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[:64], \
-                                                full_embed(decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0)))[64:]], axis=0)))
+        # # A2B and B2A cycle losses
+        A2B2A_cycle_loss = cycle_loss_fn(A, A2B2A)
+        b12A2b1_cycle_loss = cycle_loss_fn(b1,B12A2B)
+        b22A2b2_cycle_loss = cycle_loss_fn(b2,B22A2B)
+        b32A2b3_cycle_loss = cycle_loss_fn(b3,B32A2B)
 
         # compositional/attribue cycle losses
-        a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=0)
-        b_tilde = tf.concat([attr_emb_A, rest_emb_b1], axis=0) # any b works for this because we're trying to constrain a to keep attr_emb_A
+        a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=1)
+        b_tilde = tf.concat([attr_emb_A, rest_emb_b1], axis=1) # any b works for this because we're trying to constrain a to keep attr_emb_A
         a_comp_cycle_loss = cycle_loss_fn(A, \
-                                        data.uncompress(tf.concat([full_embed(b_tilde, Training=False)[:64], rest_emb_A], axis=0)))
+                                        data.uncompress(tf.concat([tf.slice(full_embed(b_tilde), [0,64], [1,64]), rest_emb_A], axis=0)))
         b3_comp_cycle_loss = cycle_loss_fn(b3, \
-                                        data.uncompress(tf.concat([full_embed(a_tilde, Training=False)[64:], rest_emb_b2], axis=0)))
+                                        data.uncompress(tf.concat([tf.slice(full_embed(a_tilde), [0,0], [1,64]), rest_emb_b2], axis=0)))
+        # a_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_A, rest_emb_A], axis=1), \
+        #                                 tf.concat([full_embed(b_tilde)[:64], rest_emb_A], axis=1))
+        # b3_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), \
+        #                                 tf.concat([full_embed(a_tilde)[:64], rest_emb_b2], axis=1))
 
         # identity losses
-        A2A_id_loss = identity_loss_fn(A, tf.concat([attr_emb_A, rest_emb_A], axis=0))
-        b12b1_id_loss = identity_loss_fn(b1, tf.concat([attr_emb_b1, rest_emb_b1], axis=0))
-        b22b2_id_loss = identity_loss_fn(b2, tf.concat([attr_emb_b2, rest_emb_b2], axis=0))
-        b32b3_id_loss = identity_loss_fn(b3, tf.concat([attr_emb_b3, rest_emb_b3], axis=0))
+        A2A_id_loss = identity_loss_fn(A, A2A)
+        b12b1_id_loss = identity_loss_fn(b1, B12B)
+        b22b2_id_loss = identity_loss_fn(b2, B22B)
+        b32b3_id_loss = identity_loss_fn(b3, B32B)
 
         # supervised loss on synth data
-        b3_constr_loss = supervised_loss_fn(b3, tf.concat([attr_emb_b1, rest_emb_b2], axis=0))
+        b3_constr_loss = supervised_loss_fn(b3, tf.concat([attr_emb_b1, rest_emb_b2], axis=1))
 
         G_loss = (aa_A_g_loss + b1b1_A_g_loss + b1b2_A_g_loss + b1b3_A_g_loss + b2b1_A_g_loss + b2b2_A_g_loss + b2b3_A_g_loss + \
                 b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss) + \
                 (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
                 b3b1_B_g_loss + b3b2_B_g_loss + b3b3_B_g_loss) + \
-                (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight + \
                 (a_comp_cycle_loss + b3_comp_cycle_loss) * args.attr_loss_weight + \
                 (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight
                 # () * args.rest_loss_weight + \
+                # (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight + \
 
         # G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
 
@@ -228,41 +240,41 @@ def train_G(A, B):
 @tf.function
 def train_D(A, B):
     with tf.GradientTape() as t:
-        attr_emb_A = full_embed(A, training=True)[:64]
-        rest_emb_A = full_embed(A, training=True)[64:]
-
         b1, b2, b3 = data.split_B(B)
 
-        attr_emb_b1 = full_embed(b1, training=True)[:64]
-        rest_emb_b1 = full_embed(b1, training=True)[64:]
-        attr_emb_b2 = full_embed(b2, training=True)[:64]
-        rest_emb_b2 = full_embed(b2, training=True)[64:]
-        attr_emb_b3 = full_embed(b3, training=True)[:64]
-        rest_emb_b3 = full_embed(b3, training=True)[64:]
+        attr_emb_A = tf.slice(full_embed(A2A), [0,0], [1,64])
+        rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
+
+        attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
+        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+        attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
+        rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
+        attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
+        rest_emb_b3 = tf.slice(full_embed(B3A2B), [0,64], [1,64])
         
         # D_A logits
-        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], axis=0), training=True)
-        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=0), training=True)
-        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], axis=0), training=True)
-        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], axis=0), training=True)
-        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], axis=0), training=True)
-        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=0), training=True)
-        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], axis=0), training=True)
-        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0), training=True)
-        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0), training=True)
-        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=0), training=True)
+        aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], axis=1), training=True)
+        b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], axis=1), training=True)
+        b1b2_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b2], axis=1), training=True)
+        b1b3_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b3], axis=1), training=True)
+        b2b1_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b1], axis=1), training=True)
+        b2b2_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], axis=1), training=True)
+        b2b3_D_A_logits = decode_A(tf.concat([attr_emb_b2, rest_emb_b3], axis=1), training=True)
+        b3b1_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), training=True)
+        b3b2_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), training=True)
+        b3b3_D_A_logits = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), training=True)
 
         # D_B logits
-        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=0), training=True)
-        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], axis=0), training=True)
-        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], axis=0), training=True)
-        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], axis=0), training=True)
-        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], axis=0), training=True)
-        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], axis=0), training=True)
-        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], axis=0), training=True)
-        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], axis=0), training=True)
-        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], axis=0), training=True)
-        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], axis=0), training=True)
+        aa_D_B_logits = decode_B(tf.concat([attr_emb_A, rest_emb_A], axis=1), training=True)
+        b1b1_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b1], axis=1), training=True)
+        b1b2_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b2], axis=1), training=True)
+        b1b3_D_B_logits = decode_B(tf.concat([attr_emb_b1, rest_emb_b3], axis=1), training=True)
+        b2b1_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b1], axis=1), training=True)
+        b2b2_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b2], axis=1), training=True)
+        b2b3_D_B_logits = decode_B(tf.concat([attr_emb_b2, rest_emb_b3], axis=1), training=True)
+        b3b1_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b1], axis=1), training=True)
+        b3b2_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b2], axis=1), training=True)
+        b3b3_D_B_logits = decode_B(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), training=True)
 
         # A_d with all other D_A losses (not sure if we need to permutate for all other possibilities)
         A_d_loss1, b1b1_d_loss1 = d_loss_fn(aa_D_A_logits, b1b1_D_A_logits)
@@ -335,11 +347,21 @@ def train_step(A, B):
 def sample(A, B):
     b1, b2, b3 = data.split_B(B)
 
-    A = tf.concat([full_embed(A, training=False)[:64], full_embed(A, training=False)[64:]], axis=0)
-    b3 = tf.concat([full_embed(b1, training=False)[:64], full_embed(b2, training=False)[64:]],axis=0)
-    Ab1 = tf.concat([full_embed(A, training=False)[:64], full_embed(b1, training=False)[64:]], axis=0)
-    Ab2 = tf.concat([full_embed(A, training=False)[:64], full_embed(b2, training=False)[64:]], axis=0)
-    Ab3 = tf.concat([full_embed(A, training=False)[:64], full_embed(b3, training=False)[64:]], axis=0)
+    attr_emb_A = tf.slice(full_embed(A2A), [0,0], [1,64])
+    rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
+
+    attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
+    rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+    attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
+    rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
+    attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
+    rest_emb_b3 = tf.slice(full_embed(B3A2B), [0,64], [1,64])
+
+    A = tf.concat([attr_emb_A, rest_emb_A], axis=1)
+    b3 = tf.concat([attr_emb_b1, rest_emb_b2],axis=1)
+    Ab1 = tf.concat([attr_emb_b1, rest_emb_A], axis=1)
+    Ab2 = tf.concat([attr_emb_b2, rest_emb_A], axis=1)
+    Ab3 = tf.concat([attr_emb_b3, rest_emb_A], axis=1)
 
     return A, b3, Ab1, Ab2, Ab3
 

@@ -73,10 +73,14 @@ def ResnetGenerator(input_shape=(32, 32, 3),
     h = keras.layers.Conv2D(output_channels, 7, padding='valid')(h)
     h = tf.tanh(h)
 
+    return keras.Model(inputs=inputs, outputs=h)
+
+def compress(input_shape=(32, 32, 3)):
     ###############################################################
     # Addition of bottleneck
     ###############################################################
     # compress (shape at this point is (32, 32, 3))
+    h = inputs = keras.Input(shape=input_shape)
     h = keras.layers.Flatten()(h)
     h = keras.layers.Dense(128)(h)
 
@@ -90,7 +94,7 @@ def ConvDiscriminator(input_shape=(32, 32, 3),
     Norm = _get_norm_layer(norm)
 
     # 0
-    h = inputs = keras.Input(shape=(None, 128))
+    h = inputs = keras.Input(shape=(128))
 
     # uncompress
     h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
