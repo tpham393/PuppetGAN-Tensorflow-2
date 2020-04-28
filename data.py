@@ -27,15 +27,6 @@ def split_B(B_tuple_img_tensor):
 
     return b1, b2, b3
 
-def uncompress(embedding):
-    input_shape=(32, 32, 3)
-    print(embedding.shape)
-    embedding = keras.layers.Dense(tf.keras.backend.prod(input_shape))(embedding)
-    embedding = tf.reshape(embedding, (-1, 32, 32, 3)) # unflatten
-    print(embedding.shape)
-
-    return embedding
-
 def make_dataset(img_paths, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=True, repeat=1):
     if training:
         @tf.function

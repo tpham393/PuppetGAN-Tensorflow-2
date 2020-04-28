@@ -107,7 +107,7 @@ def train_G(A, B):
         A2B2A = G_B2A(A2B, training=True)
         B12A2B = G_A2B(B12A, training=True)
         B22A2B = G_A2B(B22A, training=True)
-        B3A2B = G_A2B(B32A, training=True)
+        B32A2B = G_A2B(B32A, training=True)
         A2A = G_B2A(A, training=True)
         B12B = G_A2B(b1, training=True)
         B22B = G_A2B(b2, training=True)
@@ -117,11 +117,11 @@ def train_G(A, B):
         rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
 
         attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
-        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1,64])
         attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
         rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
-        attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
-        rest_emb_b3 = tf.slice(full_embed(B3A2B), [0,64], [1,64])
+        attr_emb_b3 = tf.slice(full_embed(B32A2B), [0,0], [1,64])
+        rest_emb_b3 = tf.slice(full_embed(B32A2B), [0,64], [1,64])
 
         aa_D_A_logits = decode_A(tf.concat([attr_emb_A, rest_emb_A], 1), training=True)
         b1b1_D_A_logits = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 1), training=True)
@@ -179,9 +179,9 @@ def train_G(A, B):
         a_tilde = tf.concat([attr_emb_b1, rest_emb_A], axis=1)
         b_tilde = tf.concat([attr_emb_A, rest_emb_b1], axis=1) # any b works for this because we're trying to constrain a to keep attr_emb_A
         a_comp_cycle_loss = cycle_loss_fn(A, \
-                                        data.uncompress(tf.concat([tf.slice(full_embed(b_tilde), [0,64], [1,64]), rest_emb_A], axis=0)))
+                                        module.uncompress(tf.concat([tf.slice(b_tilde, [0,64], [1,64]), rest_emb_A], axis=0)))
         b3_comp_cycle_loss = cycle_loss_fn(b3, \
-                                        data.uncompress(tf.concat([tf.slice(full_embed(a_tilde), [0,0], [1,64]), rest_emb_b2], axis=0)))
+                                        module.uncompress(tf.concat([tf.slice(a_tilde, [0,0], [1,64]), rest_emb_b2], axis=0)))
         # a_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_A, rest_emb_A], axis=1), \
         #                                 tf.concat([full_embed(b_tilde)[:64], rest_emb_A], axis=1))
         # b3_comp_cycle_loss = cycle_loss_fn(tf.concat([attr_emb_b3, rest_emb_b3], axis=1), \
@@ -201,9 +201,9 @@ def train_G(A, B):
                 (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
                 b3b1_B_g_loss + b3b2_B_g_loss + b3b3_B_g_loss) + \
                 (a_comp_cycle_loss + b3_comp_cycle_loss) * args.attr_loss_weight + \
-                (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight
-                # () * args.rest_loss_weight + \
-                # (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight + \
+                (A2A_id_loss + b12b1_id_loss + b22b2_id_loss + b32b3_id_loss) * args.identity_loss_weight + \
+                (A2B2A_cycle_loss + b12A2b1_cycle_loss + b22A2b2_cycle_loss + b32A2b3_cycle_loss) * args.cycle_loss_weight 
+                #args.rest_loss_weight
 
         # G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
 
@@ -246,7 +246,7 @@ def train_D(A, B):
         rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
 
         attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
-        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+        rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1,64])
         attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
         rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
         attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])
@@ -351,7 +351,7 @@ def sample(A, B):
     rest_emb_A = tf.slice(full_embed(A2A), [0,64], [1,64])
 
     attr_emb_b1 = tf.slice(full_embed(B12A2B), [0,0], [1,64])
-    rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1.64])
+    rest_emb_b1 = tf.slice(full_embed(B12A2B), [0,64], [1,64])
     attr_emb_b2 = tf.slice(full_embed(B22A2B), [0,0], [1,64])
     rest_emb_b2 = tf.slice(full_embed(B22A2B), [0,64], [1,64])
     attr_emb_b3 = tf.slice(full_embed(B3A2B), [0,0], [1,64])

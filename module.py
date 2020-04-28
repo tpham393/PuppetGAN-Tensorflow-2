@@ -86,6 +86,13 @@ def compress(input_shape=(32, 32, 3)):
 
     return keras.Model(inputs=inputs, outputs=h)
 
+def uncompress(input_shape=(32, 32, 3)):
+    h = inputs = keras.Input(shape=(None, 128))
+    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
+    h = tf.reshape(h, input_shape) # unflatten
+
+    return keras.Model(inputs=inputs, outputs=h)
+
 def ConvDiscriminator(input_shape=(32, 32, 3),
                       dim=64,
                       n_downsamplings=3,
@@ -94,7 +101,7 @@ def ConvDiscriminator(input_shape=(32, 32, 3),
     Norm = _get_norm_layer(norm)
 
     # 0
-    h = inputs = keras.Input(shape=(128))
+    h = inputs = keras.Input(shape=(None, 128))
 
     # uncompress
     h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
