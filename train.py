@@ -110,6 +110,13 @@ def train_G(A, B):
         attr_emb_b3 = tf.slice(full_embed(b3), [0,0], [1,64])
         rest_emb_b3 = tf.slice(full_embed(b3), [0,64], [1,64])
 
+        # for identity losses
+        A2A = decode_A(tf.reshape(full_embed(A), shape=[1,1,128]), training=True)
+
+        B12B = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
+        B22B = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)
+        B32B = decode_B(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128]), training=True)
+        
         # for cycle losses
         A2B = decode_B(tf.reshape(tf.concat([attr_emb_A, rest_emb_A], 1), shape=[1,1,128]), training=True)
         B12A = decode_A(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
@@ -189,13 +196,7 @@ def train_G(A, B):
         a_comp_cycle_loss = cycle_loss_fn(A, decode_A(tf.reshape(tf.concat([attr_emb_b_tilde, rest_emb_A], 1)), shape=[1,1,128]))
         b3_comp_cycle_loss = cycle_loss_fn(b3, decode_B(tf.reshape(tf.concat([attr_emb_a_tilde, rest_emb_b2], 1)), shape=[1,1,128]))
 
-         # for identity losses
-        A2A = decode_A(tf.reshape(full_embed(A), shape=[1,1,128]), training=True)
-
-        B12B = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
-        B22B = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)
-        B32B = decode_B(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128]), training=True)
-
+        # identity losses
         A2A_id_loss = identity_loss_fn(A, A2A)
         b12b1_id_loss = identity_loss_fn(b1, B12B)
         b22b2_id_loss = identity_loss_fn(b2, B22B)
@@ -226,6 +227,7 @@ def train_G(A, B):
             attr_emb_b1, rest_emb_b1, \
             attr_emb_b2, rest_emb_b2, \
             attr_emb_b3, rest_emb_b3, \
+            A2A, A2B, B12A, B22A, B32A, \
                 {'A_g_loss': (aa_A_g_loss + b1b1_A_g_loss + b1b2_A_g_loss + b1b3_A_g_loss + b2b1_A_g_loss + b2b2_A_g_loss + b2b3_A_g_loss + \
                             b3b1_A_g_loss + b3b2_A_g_loss + b3b3_A_g_loss),
                 'B_g_loss': (aa_B_g_loss + b1b1_B_g_loss + b1b2_B_g_loss + b1b3_B_g_loss + b2b1_B_g_loss + b2b2_B_g_loss + b2b3_B_g_loss + \
@@ -243,8 +245,10 @@ def train_G(A, B):
 
 
 @tf.function
-def train_D(A, B):
+def train_D(A, B, A2A, A2B, B12A, B22A, B32A):
     with tf.GradientTape() as t:
+        b1, b2, b3 = data.split_B(B)
+        
         A_d_logits = D_A(A, training=True)
         B1_d_logits = D_B(b1, training=True)
         B2_d_logits = D_B(b2, training=True)
@@ -352,13 +356,14 @@ def train_step(A, B):
         attr_emb_b1, rest_emb_b1, \
         attr_emb_b2, rest_emb_b2, \
         attr_emb_b3, rest_emb_b3, \
+        A2A, A2B, B12A, B22A, B32A, \
         G_loss_dict = train_G(A, B)
 
     # # cannot autograph `A2B_pool`
     # A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
     # B2A = B2A_pool(B2A)  # because of the communication between CPU and GPU
 
-    D_loss_dict = train_D(A, B)
+    D_loss_dict = train_D(A, B, A2A, A2B, B12A, B22A, B32A)
 
     return G_loss_dict, D_loss_dict
 
