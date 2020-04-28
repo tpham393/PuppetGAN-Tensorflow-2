@@ -18,10 +18,11 @@ def _get_norm_layer(norm):
         return keras.layers.LayerNormalization
 
 
-def ResnetGenerator(input_shape=(32, 32, 3),
+# def ResnetGenerator(input_shape=(32, 32, 3),
+def encoder(input_shape=(32, 32, 3),
                     output_channels=3,
-                    dim=64,
                     n_downsamplings=2,
+                    dim=64,
                     n_blocks=9,
                     norm='instance_norm'):
     Norm = _get_norm_layer(norm)
@@ -61,6 +62,29 @@ def ResnetGenerator(input_shape=(32, 32, 3),
     for _ in range(n_blocks):
         h = _residual_block(h)
 
+    ###############################################################
+    # Addition of bottleneck
+    ###############################################################
+    h = keras.layers.Flatten()(h)
+    h = keras.layers.Dense(128)(h)
+
+    return keras.Model(inputs=inputs, outputs=h)
+
+def gaussian_noise_layer(input_layer, std):
+    noise = tf.random_normal(shape=tf.shape(input_layer), mean=0.0, stddev=std, dtype=tf.float32) 
+    return input_layer + noise
+
+def decoder(output_shape=(32, 32, 3),
+                dim=256,
+                n_downsamplings=2,
+                norm='instance_norm',
+                output_channels=3):
+    Norm = _get_norm_layer(norm)
+
+    h = inputs = keras.Input(shape=(None, 128))
+    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
+    h = tf.reshape(h, input_shape) # unflatten
+
     # 4
     for _ in range(n_downsamplings):
         dim //= 2
@@ -75,23 +99,20 @@ def ResnetGenerator(input_shape=(32, 32, 3),
 
     return keras.Model(inputs=inputs, outputs=h)
 
-def compress(input_shape=(32, 32, 3)):
-    ###############################################################
-    # Addition of bottleneck
-    ###############################################################
-    # compress (shape at this point is (32, 32, 3))
-    h = inputs = keras.Input(shape=input_shape)
-    h = keras.layers.Flatten()(h)
-    h = keras.layers.Dense(128)(h)
+# def compress(input_shape=(32, 32, 3)):
+#     ###############################################################
+#     # Addition of bottleneck
+#     ###############################################################
+#     # compress (shape at this point is (32, 32, 3))
+#     h = inputs = keras.Input(shape=input_shape)
+    
 
-    return keras.Model(inputs=inputs, outputs=h)
+# def uncompress(input_shape=(32, 32, 3)):
+#     h = inputs = keras.Input(shape=(None, 128))
+#     h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
+#     h = tf.reshape(h, input_shape) # unflatten
 
-def uncompress(input_shape=(32, 32, 3)):
-    h = inputs = keras.Input(shape=(None, 128))
-    h = keras.layers.Dense(tf.keras.backend.prod(input_shape))(h)
-    h = tf.reshape(h, input_shape) # unflatten
-
-    return keras.Model(inputs=inputs, outputs=h)
+#     return keras.Model(inputs=inputs, outputs=h)
 
 def ConvDiscriminator(input_shape=(32, 32, 3),
                       dim=64,
