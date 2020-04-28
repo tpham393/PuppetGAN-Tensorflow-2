@@ -111,10 +111,10 @@ def train_G(A, B):
         rest_emb_b3 = tf.slice(full_embed(b3), [0,64], [1,64])
 
         # for cycle losses
-        A2B = decode_B(tf.concat([attr_emb_A, rest_emb_A], 1), training=True)
-        B12A = decode_A(tf.concat([attr_emb_b1, rest_emb_b1], 1), training=True)
-        B22A = decode_A(tf.concat([attr_emb_b2, rest_emb_b2], 1), training=True)
-        B32A = decode_A(tf.concat([attr_emb_b3, rest_emb_b3], 1), training=True)
+        A2B = decode_B(tf.reshape(tf.concat([attr_emb_A, rest_emb_A], 1), shape=[1,1,128]), training=True)
+        B12A = decode_A(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
+        B22A = decode_A(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)
+        B32A = decode_A(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128]), training=True)
         
         A2B2A = decode_A(full_embed(A2B), training=True)
         B12A2B = decode_B(full_embed(B12A), training=True)
