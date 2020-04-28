@@ -193,7 +193,7 @@ def train_G(A, B):
         A2A = decode_A(full_embed(A), training=True)
 
         B12B = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b1], 1), shape=[1,1,128]), training=True)
-        B22B = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), training=True)
+        B22B = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b2], 1), shape=[1,1,128]), training=True)
         B32B = decode_B(tf.reshape(tf.concat([attr_emb_b3, rest_emb_b3], 1), shape=[1,1,128]), training=True)
 
         A2A_id_loss = identity_loss_fn(A, A2A)
