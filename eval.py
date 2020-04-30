@@ -1,23 +1,23 @@
-import tensorflow as tf
-import tensorflow_probability as tfp
+import cv2
 import numpy as np
 from scipy.stats import pearsonr
 
 
 def pearson_correlation(A,B):
-  # A and B are integer numpy arrays
   corr, _ = pearsonr(A, B)
   return corr
 
 
-def tensor_pearson_correlation(A,B, sample_axis=0,event_axis=None):
-    # A: A numeric Tensor holding samples 
-    # B: Optional Tensor with same dtype and shape as A. Default value: None (B is effectively set to A).
-    # sample_axis: Scalar or vector Tensor designating axis holding samples
-    # event_axis:Axis indexing random events, whose correlation we are interested in. Default value: -1 (rightmost axis holds events).
-    return tfp.stats.correlation(x, y)
 
-# testing 
-x = tf.random.normal(shape=(100, 2))
-y = tf.random.normal(shape=(100, 2))
-print(tensor_pearson_correlation(x,y))    
+# testing
+a = cv2.imread("./digit-data/real-digits/train/0000.png")
+b = cv2.imread("./digit-data/real-digits/train/0001.png")
+a = a.flatten()
+b = b.flatten() 
+
+print(a.shape)
+c = np.array([1,3,4])
+d = np.array([1,4,5])
+print(pearson_correlation(a,b))
+print(pearson_correlation(c,d))
+ 
