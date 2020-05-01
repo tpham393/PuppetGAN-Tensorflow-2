@@ -1,85 +1,39 @@
-***Recommendation***
+## Description of files
+### module.py
+Definition of the network architecture in components, i.e. encoder, decoder, Gaussian noise layer, and discriminator.
 
-- Our GAN based work for facial attribute editing - [AttGAN](https://github.com/LynnHo/AttGAN-Tensorflow).
+### train.py
+Defines the various losses, the dataset, and the training loop. Performs training.
 
-***New***
+### test.py
+Short script to run model on some test images.
 
-- We re-implement CycleGAN by **Tensorflow 2**! The old versions are here: [v1](https://github.com/LynnHo/CycleGAN-Tensorflow-PyTorch/tree/v1), [v0](https://github.com/LynnHo/CycleGAN-Tensorflow-PyTorch/tree/v0).
+### data.py
+Makes the dataset by zipping together real image inputs with (tuples of) synthetic image inputs. Also contains method to crop b1, b2, and b3 from synthetic image tuple B. Handles pre-processing (converting the image tensor to dtype=tf.float32 and normalizing the values to be between 0 and 1).
 
-<hr style="height:1px" />
+### process_Xb.py
+Crops tuples of synthetic image inputs into individual b1, b2, b3 images and saves them in separate directories. (Ultimately unused in the final product; we considered splitting the synthetic image inputs in this way when we were exploring how the data should be parsed and flow through the network.)
 
-<p align="center"> <img src="./pics/horse2zebra.gif" width="100%" /> </p>
+### extract_data.py
+Loads data from .tar files and saves extracted images to appropriate directories.
 
-<hr style="height:1px" />
 
-# <p align="center"> CycleGAN - Tensorflow 2 </p>
+### split_data.py
+Splits real input images and (tuples of) synthetic input images randomly into 80% train and 20% test and saves the files in the appropriate directories.
 
-Tensorflow 2 implementation of CycleGAN.
+## How to install & run
+### Requirements:
+- tensorflow==2.1.0
+- GPUs
 
-Paper: [Unpaired Image-to-Image Translation using Cycle-Consistent Adversarial Networks](https://arxiv.org/pdf/1703.10593.pdf)
+Clone the Github repo, which includes the data in the appropriate directories.
 
-Author: [Jun-Yan Zhu ](https://people.eecs.berkeley.edu/~junyanz/) *et al.*
+### Example command to train
+```
+CUDA_VISIBLE_DEVICES=0 python train.py --epochs  100
+```
 
-## Exemplar results
-
-### summer2winter
-
-row 1: summer -> winter -> reconstructed summer, row 2: winter -> summer -> reconstructed winter
-
-<p align="center"> <img src="./pics/summer2winter.jpg" width="100%" /> </p>
-
-### horse2zebra
-
-row 1: horse -> zebra -> reconstructed horse, row 2: zebra -> horse -> reconstructed zebra
-
-<p align="center"> <img src="./pics/horse2zebra.jpg" width="100%" /> </p>
-
-### apple2orange
-
-row 1: apple -> orange -> reconstructed apple, row 2: orange -> apple -> reconstructed orange
-
-<p align="center"> <img src="./pics/apple2orange.jpg" width="100%" /> </p>
-
-# Usage
-
-- Prerequisites
-
-    - Tensorflow 2.0 `pip install tensorflow-gpu`
-    - Tensorflow Addons `pip install tensorflow-addons`
-    - (if you meet "tf.summary.histogram fails with TypeError" `pip install --upgrade tb-nightly`)
-    - scikit-image, oyaml, tqdm
-    - Python 3.6
-
-- Dataset
-
-    - download the summer2winter dataset
-
-        ```console
-        sh ./download_dataset.sh summer2winter_yosemite
-        ```
-
-    - download the horse2zebra dataset
-
-        ```console
-        sh ./download_dataset.sh horse2zebra
-        ```
-
-    - see [download_dataset.sh](./download_dataset.sh) for more datasets
-
-- Example of training
-
-    ```console
-    CUDA_VISIBLE_DEVICES=0 python train.py --dataset summer2winter_yosemite
-    ```
-
-    - tensorboard for loss visualization
-
-        ```console
-        tensorboard --logdir ./output/summer2winter_yosemite/summaries --port 6006
-        ```
-
-- Example of testing
-
-    ```console
-    CUDA_VISIBLE_DEVICES=0 python test.py --experiment_dir ./output/summer2winter_yosemite
-    ```
+### Example command to test
+```
+CUDA_VISIBLE_DEVICES=0 python test.py --experiment_dir ./output/digit-data
+```
