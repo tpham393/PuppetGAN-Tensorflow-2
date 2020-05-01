@@ -460,8 +460,9 @@ with train_summary_writer.as_default():
             # sample
             if G_optimizer.iterations.numpy() % 100 == 0:
                 A, B = next(test_iter)
+                b1, b2, b3 = data.split_B(B)
                 A2A, b1, b2, b3_constr, Ab1, Ab2, Ab3 = sample(A, B)
-                img = im.immerge(np.concatenate([A2A, b1, b2, b3_constr, Ab1, Ab2, Ab3], axis=0), n_rows=2)
+                img = im.immerge(np.concatenate([A, A2A, b1, b2, b3, b3_constr, Ab1, Ab2, Ab3], axis=0), n_rows=3)
                 im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
 
         # save checkpoint
