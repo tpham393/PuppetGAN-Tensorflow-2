@@ -76,20 +76,23 @@ def sample_to_B(B):
     rest_emb_b3 = tf.slice(full_embed(b3, training=False), [0,64], [1,64])
 
     b3_reconstr = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b2],1), shape=[1,1,128]), training=False)
-    return b1, b2, b3, b3_reconstr
+    return b3_reconstr
 
 
 # run
 test_iter = iter(A_B_dataset_test)
 save_dir = py.join(args.experiment_dir, 'samples_testing')
 py.mkdir(save_dir)
+py.mkdir(py.join(save_dir, 'sample_to_A'))
+py.mkdir(py.join(save_dir, 'sample_to_B'))
 i = 0
 for A, B in tqdm.tqdm(A_B_dataset_test):
     A, B = next(test_iter)
     Ab1, Ab2, Ab3 = sample_to_A(A, B)
-    b1, b2, b3, b3_reconstr = sample_to_B(B)
-    img1 = im.immerge(np.concatenate([Ab1, Ab2, Ab3], axis=0), n_rows=2)
-    img2 = im.immerge(np.concatenate([b1, b2, b3, b3_reconstr], axis=0), n_rows=2)
-    im.imwrite(img1, py.join(save_dir, 'sample_to_A', 'iter-%09d.png' % i))
-    im.imwrite(img2, py.join(save_dir, 'sample_to_B', 'iter-%09d.png' % i))
+    b1, b2, b3 = data.split_B(B)
+    b3_reconstr = sample_to_B(B)
+    img1 = im.immerge(np.concatenate([A, b1, Ab1, A, b2, Ab2, A, b3, Ab3], axis=0), n_rows=3)
+    img2 = im.immerge(np.concatenate([b1, b2, b3, b3_reconstr], axis=0), n_rows=1)
+    im.imwrite(img1, py.join(save_dir, 'sample_to_A', 'iter-%09d.jpg' % i))
+    im.imwrite(img2, py.join(save_dir, 'sample_to_B', 'iter-%09d.jpg' % i))
     i += 1
