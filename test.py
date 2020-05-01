@@ -65,11 +65,8 @@ def sample_to_A(A, B):
 
 
 @tf.function
-def sample_to_B(A, B):
+def sample_to_B(B):
     b1, b2, b3 = data.split_B(B)
-
-    attr_emb_A = tf.slice(full_embed(A, training=False), [0,0], [1,64])
-    rest_emb_A = tf.slice(full_embed(A, training=False), [0,64], [1,64])
 
     attr_emb_b1 = tf.slice(full_embed(b1, training=False), [0,0], [1,64])
     rest_emb_b1 = tf.slice(full_embed(b1, training=False), [0,64], [1,64])
@@ -78,12 +75,8 @@ def sample_to_B(A, B):
     attr_emb_b3 = tf.slice(full_embed(b3, training=False), [0,0], [1,64])
     rest_emb_b3 = tf.slice(full_embed(b3, training=False), [0,64], [1,64])
 
-    b1A = decode_B(tf.reshape(tf.concat([attr_emb_A, rest_emb_b1],1), shape=[1,1,128]), training=False)
-    b2A = decode_B(tf.reshape(tf.concat([attr_emb_A, rest_emb_b2],1), shape=[1,1,128]), training=False)
-    b3A = decode_B(tf.reshape(tf.concat([attr_emb_A, rest_emb_b3],1), shape=[1,1,128]), training=False)
-    b1b2 = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b2],1), shape=[1,1,128]), training=False)
-    b2b3 = decode_B(tf.reshape(tf.concat([attr_emb_b2, rest_emb_b3],1), shape=[1,1,128]), training=False)
-    return b1A, b2A, b3A, b1b2, b2b3
+    b3_reconstr = decode_B(tf.reshape(tf.concat([attr_emb_b1, rest_emb_b2],1), shape=[1,1,128]), training=False)
+    return b1, b2, b3, b3_reconstr
 
 
 # run
@@ -94,8 +87,8 @@ py.mkdir(save_dir)
 for A, B in tqdm.tqdm(A_B_dataset_test):
     A, B = next(test_iter)
     Ab1, Ab2, Ab3 = sample_to_A(A, B)
-    b1A, b2A, b3A, b1b2, b2b3 = sample_to_B(A, B)
+    b1, b2, b3, b3_reconstr = sample_to_B(B)
     img1 = im.immerge(np.concatenate([Ab1, Ab2, Ab3], axis=1))
-    img2 = im.immerge(np.concatenate[b1A, b2A, b3A, b1b2, b2b3], axis=1)
+    img2 = im.immerge(np.concatenate[b1, b2, b3, b3_reconstr], axis=1)
     im.imwrite(img1, py.join(save_dir, 'sample_to_A', 'iter-%09d.png' % test_iter))
     im.imwrite(img2, py.join(save_dir, 'sample_to_B', 'iter-%09d.png' % test_iter))
