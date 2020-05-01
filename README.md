@@ -33,7 +33,7 @@ Clone the Github repo, which includes the data in the appropriate directories.
 
 ### Example command to train
 ```
-CUDA_VISIBLE_DEVICES=0 python train.py --epochs  100
+CUDA_VISIBLE_DEVICES=0 python train.py --epochs  300
 ```
 
 ### Example command to test
