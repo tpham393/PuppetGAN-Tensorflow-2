@@ -24,6 +24,10 @@ Splits real input images and (tuples of) synthetic input images randomly into 80
 ## How to install & run
 ### Requirements:
 - tensorflow==2.1.0
+- tensorflow_addons (not supported for Windows)
+- numpy
+- tqdm
+- imlib
 - GPUs
 
 Clone the Github repo, which includes the data in the appropriate directories.
